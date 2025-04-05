@@ -1,0 +1,239 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum OrderType {
+  ONLINE
+  OFFLINE
+}
+
+model User {
+  id             String      @id @default(uuid())
+  username       String      @unique
+  email          String      @unique
+  password       String
+  role           Role        @default(USER)
+  phone          String?
+  isVerified     Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  // Relations
+  addresses      Address[]
+  orders         Order[]
+  cart          CartItem[]
+
+  @@map("users")
+}
+
+model ReceiptToken {
+  id            String      @id @default(uuid())
+  token         String      @unique
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  expiresAt     DateTime
+  filename      String?
+  createdAt     DateTime    @default(now())
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?   
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("categories")
+}
+
+model Product {
+  id          String         @id @default(uuid())
+  name        String
+  slug        String         @unique
+  description String?
+  price       Decimal        @db.Decimal(10, 2)  // Harga per gram atau per kg
+  costPrice   Decimal        @db.Decimal(10, 2) @default(0)
+  weightInStock Decimal     @db.Decimal(10, 2)  // Total berat stok dalam gram
+  minOrderWeight Decimal    @db.Decimal(10, 2)  // Minimum pembelian dalam gram
+  isAvailable Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  category    Category      @relation(fields: [categoryId], references: [id])
+  categoryId  String
+  images      ProductImage[]
+  orderItems  OrderItem[]
+  cartItems   CartItem[]
+
+  @@map("products")
+}
+
+model ProductImage {
+  id        String   @id @default(uuid())
+  imageUrl  String
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Relations
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+
+  @@map("product_images")
+}
+
+model Address {
+  id          String   @id @default(uuid())
+  province    String
+  city        String
+  district    String
+  postalCode  String
+  fullAddress String
+  recipientName String?
+  phone       String?
+  isPrimary   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+
+  @@map("addresses")
+}
+
+model Shipping {
+  id              String   @id @default(uuid())
+  deliveryDate    DateTime @default(now())
+  deliveryStatus  String   @default("PENDING") // PENDING, IN_DELIVERY, DELIVERED
+  staffName       String?  // Name of staff member making the delivery
+  notes           String?
+  recipientName   String?  // Person who received the order
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relation
+  order           Order    @relation(fields: [orderId], references: [id])
+  orderId         String   @unique
+
+  @@map("shipping")
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  orderNumber     String      @unique
+  orderDate       DateTime    @default(now())
+  totalAmount     Decimal     @db.Decimal(10, 2)
+  shippingCost    Decimal     @default(0)
+  status          OrderStatus @default(PENDING)
+  deliveryAddress String
+  shippingMethod  String?
+  orderType       OrderType   @default(ONLINE)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  user          User          @relation(fields: [userId], references: [id])
+  userId        String
+  orderItems    OrderItem[]
+  transaction   Transaction?
+  shipping       Shipping?
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  weight    Decimal  @db.Decimal(10, 2)  // Berat dalam gram yang dipesan
+  price     Decimal  @db.Decimal(10, 2)  // Harga total untuk pesanan ini
+  costPrice    Decimal  @db.Decimal(10, 2) @default(0)
+  pricePerUnit Decimal @db.Decimal(10, 2) // Harga per gram/kg saat pembelian (untuk referensi)
+  costPerUnit  Decimal  @db.Decimal(10, 2) @default(0)
+  createdAt DateTime @default(now())
+
+  // Relations
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   String
+  product   Product  @relation(fields: [productId], references: [id])
+  productId String
+
+  @@map("order_items")
+}
+
+model Transaction {
+  id              String            @id @default(uuid())
+  transactionDate DateTime          @default(now())
+  amount          Decimal           @db.Decimal(10, 2)
+  serviceFee      Decimal?          @db.Decimal(10, 2)
+  paymentMethod   String
+  status          TransactionStatus @default(PENDING)
+  paymentProof    String?
+  completionDetails Json?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  // Relations
+  order           Order             @relation(fields: [orderId], references: [id])
+  orderId         String            @unique
+  history         TransactionHistory[]
+   receiptTokens ReceiptToken[]
+
+  @@map("transactions")
+}
+
+model TransactionHistory {
+  id            String   @id @default(uuid())
+  productName   String
+  categoryName  String
+  price         Decimal  @db.Decimal(10, 2)
+  totalPrice    Decimal  @db.Decimal(10, 2)
+  quantity      Int
+  createdAt     DateTime @default(now())
+
+  // Relations
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  transactionId String
+
+  @@map("transaction_history")
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  weight    Decimal  @db.Decimal(10, 2)  // Berat dalam gram yang dimasukkan ke keranjang
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+
+  @@map("cart")
+}
