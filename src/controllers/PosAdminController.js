@@ -101,6 +101,19 @@ const createPOSTransaction = async (req, res) => {
       }
     });
 
+    for (const item of order.orderItems) {
+      await prisma.transactionHistory.create({
+        data: {
+          productName: item.product.name,
+          categoryName: item.product.category?.name || 'Uncategorized',
+          price: parseFloat(item.pricePerUnit),
+          totalPrice: parseFloat(item.price),
+          quantity: Math.round(parseFloat(item.weight) / 1000 * 100) / 100, // Convert to kg with 2 decimal places
+          transactionId: transactionId
+        }
+      });
+    }
+
     // Update product inventory
     for (const item of orderItems) {
       await prisma.product.update({

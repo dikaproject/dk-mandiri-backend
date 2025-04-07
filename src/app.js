@@ -17,6 +17,8 @@ const userManageRoutes = require('./routes/usermanage');
 const analyticsRoutes = require('./routes/analytics');
 const posadmin = require('./routes/posadmin');
 const assistantRoutes = require('./routes/assistant');
+const communityRoutes = require('./routes/community');
+const contactRoutes = require('./routes/contact');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -25,6 +27,11 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/uploads', (req, res, next) => {
+  console.log('File requested:', req.path);
+  next();
+}, express.static(path.join(__dirname, '..', 'uploads')));
+
+app.use('/api/uploads', (req, res, next) => {
   console.log('File requested:', req.path);
   next();
 }, express.static(path.join(__dirname, '..', 'uploads')));
@@ -43,6 +50,8 @@ app.use('/api/users', userManageRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/pos', posadmin);
 app.use('/api/assistant', assistantRoutes);
+app.use('/api/community', communityRoutes);
+app.use('/api/contact', contactRoutes);
 
 
 // Error Handler

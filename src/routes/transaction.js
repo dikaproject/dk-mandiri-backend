@@ -18,6 +18,167 @@ const path = require('path');
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
+router.get('/:id', auth, adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const transaction = await prisma.transaction.findUnique({
+      where: { id },
+      include: {
+        order: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                email: true,
+                phone: true
+              }
+            },
+            orderItems: {
+              include: {
+                product: {
+                  select: {
+                    id: true,
+                    name: true,
+                    images: {
+                      where: { isPrimary: true },
+                      take: 1,
+                      select: { imageUrl: true }
+                    }
+                  }
+                }
+              }
+            },
+            shipping: true
+          }
+        }
+      }
+    });
+    
+    if (!transaction) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+    
+    // Format response similar to getAllTransactions
+    const formattedTransaction = {
+      id: transaction.id,
+      amount: Number(transaction.amount),
+      paymentMethod: transaction.paymentMethod,
+      status: transaction.status,
+      paymentProof: transaction.paymentProof,
+      transactionDate: transaction.transactionDate,
+      createdAt: transaction.createdAt,
+      updatedAt: transaction.updatedAt,
+      serviceFee: transaction.serviceFee ? Number(transaction.serviceFee) : 0,
+      orderId: transaction.orderId,
+      completionDetails: transaction.completionDetails,
+      order: {
+        id: transaction.order.id,
+        orderNumber: transaction.order.orderNumber,
+        status: transaction.order.status,
+        orderType: transaction.order.orderType,
+        shippingCost: Number(transaction.order.shippingCost),
+        deliveryAddress: transaction.order.deliveryAddress,
+        shippingMethod: transaction.order.shippingMethod,
+        user: {
+          id: transaction.order.user.id,
+          name: transaction.order.user.username,
+          email: transaction.order.user.email,
+          phone: transaction.order.user.phone
+        },
+        orderItems: transaction.order.orderItems.map(item => ({
+          id: item.id,
+          weight: Number(item.weight),
+          price: Number(item.price),
+          pricePerUnit: Number(item.pricePerUnit),
+          product: {
+            id: item.product.id,
+            name: item.product.name,
+            imageUrl: item.product.images[0]?.imageUrl || null
+          }
+        }))
+      }
+    };
+    
+    res.status(200).json(formattedTransaction);
+  } catch (error) {
+    console.error('Error fetching transaction:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.put('/:id/update-order', auth, adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { orderStatus, staffName, notes } = req.body;
+    
+    // Validasi data
+    if (!orderStatus) {
+      return res.status(400).json({ message: 'Order status is required' });
+    }
+    
+    // Cari transaction berdasarkan ID
+    const transaction = await prisma.transaction.findUnique({
+      where: { id },
+      include: { order: true }
+    });
+    
+    if (!transaction) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+    
+    // Update order status
+    const updatedOrder = await prisma.order.update({
+      where: { id: transaction.orderId },
+      data: { 
+        status: orderStatus,
+        // Jika status DELIVERED, tambahkan completion details
+        ...(orderStatus === 'DELIVERED' && {
+          shipping: {
+            upsert: {
+              create: {
+                deliveryStatus: 'DELIVERED',
+                staffName: staffName || req.user.username,
+                notes: notes || 'Order completed',
+                deliveryDate: new Date()
+              },
+              update: {
+                deliveryStatus: 'DELIVERED',
+                staffName: staffName || req.user.username,
+                notes: notes || 'Order completed',
+                deliveryDate: new Date()
+              }
+            }
+          }
+        })
+      }
+    });
+    
+    // Jika perlu, update juga transaction completionDetails
+    if (orderStatus === 'DELIVERED') {
+      await prisma.transaction.update({
+        where: { id },
+        data: {
+          completionDetails: {
+            completedBy: staffName || req.user.username,
+            completedAt: new Date(),
+            notes: notes || 'Order completed'
+          }
+        }
+      });
+    }
+    
+    res.status(200).json({ 
+      message: 'Order status updated successfully',
+      order: updatedOrder
+    });
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 router.get('/:id/validate-receipt', async (req, res) => {
   try {
     const { id } = req.params;

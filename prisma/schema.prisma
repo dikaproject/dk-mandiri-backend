@@ -46,6 +46,7 @@ model User {
   addresses      Address[]
   orders         Order[]
   cart          CartItem[]
+  reviews        CommunityReview[]
 
   @@map("users")
 }
@@ -166,6 +167,21 @@ model Order {
   shipping       Shipping?
 
   @@map("orders")
+}
+
+model CommunityReview {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  message   String   @db.Text
+  rating    Int
+  imageUrl  String?
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("community_reviews")
 }
 
 model OrderItem {
