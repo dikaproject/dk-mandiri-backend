@@ -1,7 +1,7 @@
 module.exports = {
     apps: [{
       name: 'dkmandiri-backend',
-      script: 'index.js', // Sesuaikan dengan entry point Express app Anda
+      script: 'src/app.js', // Sesuaikan dengan entry point Express app Anda
       instances: 1,
       exec_mode: 'fork',
       env: {
