@@ -19,6 +19,7 @@ const posadmin = require('./routes/posadmin');
 const assistantRoutes = require('./routes/assistant');
 const communityRoutes = require('./routes/community');
 const contactRoutes = require('./routes/contact');
+const profileRoutes = require('./routes/profile');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -52,6 +53,7 @@ app.use('/api/pos', posadmin);
 app.use('/api/assistant', assistantRoutes);
 app.use('/api/community', communityRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/profile', profileRoutes);
 
 
 // Error Handler
