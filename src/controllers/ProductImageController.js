@@ -43,7 +43,7 @@ const CreateProductImages = async (req, res) => {
         req.protocol +
         '://' +
         req.get('host') +
-        '/uploads/product/' +
+        '/api/uploads/product/' +
         file.filename;
       return prisma.productImage.create({
         data: {
@@ -102,7 +102,7 @@ const UpdateProductImage = async (req, res) => {
         req.protocol +
         '://' +
         req.get('host') +
-        '/uploads/product/' +
+        '/api/uploads/product/' +
         req.file.filename;
     }
 
