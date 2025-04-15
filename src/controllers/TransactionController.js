@@ -215,9 +215,11 @@ const verifyPayment = async (req, res) => {
 const updateTransactionStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, staffName, notes } = req.body;
+    // Support both status and orderStatus field names for backward compatibility
+    const status = req.body.status || req.body.orderStatus;
+    const { staffName, notes } = req.body;
     
-    if (!['SHIPPED', 'SUCCESS', 'CANCELLED'].includes(status)) {
+    if (!status || !['SHIPPED', 'SUCCESS', 'CANCELLED', 'DELIVERED', 'PROCESSING'].includes(status)) {
       return res.status(400).json({ message: 'Invalid status' });
     }
     
@@ -247,12 +249,14 @@ const updateTransactionStatus = async (req, res) => {
     const transactionStatusMap = {
       'SHIPPED': 'SUCCESS',
       'SUCCESS': 'SUCCESS',
+      'DELIVERED': 'SUCCESS',
+      'PROCESSING': 'SUCCESS',
       'CANCELLED': 'FAILED'
     };
     
-    // Update transaction data (tanpa shippingDetails)
+    // Update transaction data
     const updateData = {
-      status: transactionStatusMap[status]
+      status: transactionStatusMap[status] || transaction.status
     };
     
     // Process based on status
@@ -270,7 +274,8 @@ const updateTransactionStatus = async (req, res) => {
           deliveryStatus: 'Sedang Di Antarkan',
           staffName: staffName,
           notes: notes || null,
-          orderId: transaction.order.id
+          orderId: transaction.order.id,
+          deliveryDate: new Date()
         }
       });
       
@@ -299,8 +304,8 @@ const updateTransactionStatus = async (req, res) => {
           // Don't fail transaction update if notification fails
         }
       }
-    } else if (status === 'SUCCESS') {
-      // Add completionDetails for SUCCESS status
+    } else if (status === 'DELIVERED' || status === 'SUCCESS') {
+      // Add completionDetails for SUCCESS/DELIVERED status
       updateData.completionDetails = {
         completedBy: staffName || 'Admin',
         notes: notes || '',
@@ -313,8 +318,8 @@ const updateTransactionStatus = async (req, res) => {
         data: { status: 'DELIVERED' }
       });
       
-      // Send completion notification for ALL orders (both OFFLINE and ONLINE)
-      if (transaction.order.user.phone) { // Hapus kondisi orderType === 'OFFLINE'
+      // Send completion notification
+      if (transaction.order.user.phone) {
         try {
           await whatsappService.sendOrderCompleteNotification(
             transaction.order.user.phone,
@@ -332,7 +337,6 @@ const updateTransactionStatus = async (req, res) => {
           );
         } catch (notifError) {
           console.error('Failed to send order completion notification:', notifError);
-          // Don't fail transaction update if notification fails
         }
       }
     } else if (status === 'CANCELLED') {
@@ -340,6 +344,12 @@ const updateTransactionStatus = async (req, res) => {
       await prisma.order.update({
         where: { id: transaction.order.id },
         data: { status: 'CANCELLED' }
+      });
+    } else if (status === 'PROCESSING') {
+      // Update order status for PROCESSING
+      await prisma.order.update({
+        where: { id: transaction.order.id },
+        data: { status: 'PROCESSING' }
       });
     }
     
@@ -462,5 +472,6 @@ module.exports = {
   uploadPaymentProof,
   verifyPayment,
   updateTransactionStatus,
-  getAllTransactions // Tambahkan ini
+  getAllTransactions,
+  updateTransactionStatus
 };

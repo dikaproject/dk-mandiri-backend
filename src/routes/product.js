@@ -6,7 +6,8 @@ const {
   UpdateProduct, 
   DeleteProduct,
   GetTrendingProducts,
-  GetProductBySlug
+  GetProductBySlug,
+  UpdateProductStock
 } = require('../controllers/ProductController');
 
 router.get('/trending', GetTrendingProducts);
@@ -16,5 +17,7 @@ router.post('/', CreateProduct);
 router.get('/:id', ShowProduct);
 router.put('/:id', UpdateProduct);
 router.delete('/:id', DeleteProduct);
+
+router.patch('/:id/stock', UpdateProductStock);
 
 module.exports = router;

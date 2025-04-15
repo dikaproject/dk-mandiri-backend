@@ -360,4 +360,59 @@ const GetTrendingProducts = async (req, res) => {
   }
 };
 
-module.exports = { Product, CreateProduct, ShowProduct, UpdateProduct, DeleteProduct, GetTrendingProducts, GetProductBySlug };
+const UpdateProductStock = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { weightInStock } = req.body;
+    
+    // Validasi input
+    if (weightInStock === undefined) {
+      return res.status(400).json({ message: 'weightInStock is required' });
+    }
+    
+    // Pastikan konversi ke tipe data yang benar (number)
+    const numericStock = parseFloat(weightInStock);
+    
+    if (isNaN(numericStock)) {
+      return res.status(400).json({ message: 'Invalid stock value' });
+    }
+    
+    // Log untuk debugging
+    console.log('Updating product stock:');
+    console.log('- Product ID:', id);
+    console.log('- New stock value:', numericStock);
+    console.log('- Value type:', typeof numericStock);
+    
+    const updatedProduct = await prisma.product.update({
+      where: { id },
+      data: {
+        weightInStock: numericStock // Simpan sebagai decimal di database
+      },
+      select: {
+        id: true,
+        name: true,
+        weightInStock: true
+      }
+    });
+    
+    // Log hasil update
+    console.log('Stock updated successfully:');
+    console.log('- New stock in DB:', updatedProduct.weightInStock);
+    
+    res.status(200).json(updatedProduct);
+  } catch (error) {
+    console.error('Error updating product stock:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = { 
+  Product, 
+  CreateProduct, 
+  ShowProduct, 
+  UpdateProduct, 
+  DeleteProduct, 
+  GetTrendingProducts, 
+  GetProductBySlug,
+  UpdateProductStock 
+};

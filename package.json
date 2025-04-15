@@ -8,7 +8,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "create:crud": "node create-controller.js",
-    "create:routes": "node create-routes.js"
+    "create:routes": "node create-routes.js",
+    "db:seed": "node prisma/seeder/index.js"
   },
   "keywords": [],
   "author": "",

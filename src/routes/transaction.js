@@ -7,7 +7,7 @@ const {
   uploadPaymentProof, 
   verifyPayment,
   updateTransactionStatus,
-  getAllTransactions
+  getAllTransactions,
 } = require('../controllers/TransactionController');
 const { auth, adminOnly } = require('../middleware/auth');
 const crypto = require('crypto');
